@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import uuid
 import qrcode
+import json
 from datetime import datetime
 
 app = Flask(__name__)
@@ -10,8 +11,21 @@ app = Flask(__name__)
 # Base URL for generating public QR code links
 BASE_URL = os.environ.get("BASE_URL", "https://attendance-system-project.onrender.com")
 
-# Store sessions in memory
-sessions = {}
+# Persistent storage file for session metadata
+SESSION_FILE = "session_data.json"
+
+# Load or initialize session storage
+def load_sessions():
+    if os.path.exists(SESSION_FILE):
+        with open(SESSION_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+def save_sessions(data):
+    with open(SESSION_FILE, 'w') as f:
+        json.dump(data, f)
+
+sessions = load_sessions()
 
 def save_attendance(session_id, student_id, lat, lon):
     attendance_file = f"attendance_{session_id}.csv"
@@ -47,6 +61,7 @@ def generate_qr():
         'latitude': lat,
         'longitude': lon
     }
+    save_sessions(sessions)
 
     session_url = f"{BASE_URL}/scan/{session_id}"
     qr = qrcode.make(session_url)
@@ -57,6 +72,7 @@ def generate_qr():
 
 @app.route('/scan/<session_id>')
 def scan(session_id):
+    sessions.update(load_sessions())  # Reload sessions in case of new restart
     if session_id not in sessions:
         return "Invalid session ID"
 
@@ -74,6 +90,7 @@ def submit_attendance():
     if not lat or not lon:
         return "Location access is required to mark attendance"
 
+    sessions.update(load_sessions())  # Ensure latest session data
     save_attendance(session_id, student_id, lat, lon)
     return "Attendance marked successfully. Thank you!"
 
