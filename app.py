@@ -66,6 +66,7 @@ def generate_qr():
     filepath = f"session_{session_id}.csv"
     df.to_csv(filepath, index=False)
 
+    sessions = load_sessions()  # Load fresh sessions
     sessions[session_id] = {
         'filepath': filepath,
         'latitude': lat,
@@ -83,11 +84,12 @@ def generate_qr():
 
 @app.route('/scan/<session_id>')
 def scan(session_id):
-    sessions.update(load_sessions())
-    if session_id not in sessions:
+    sessions = load_sessions()  # Always load fresh session data here
+    session = sessions.get(session_id)
+    if not session:
         return "Invalid session ID"
 
-    df = pd.read_csv(sessions[session_id]['filepath'])
+    df = pd.read_csv(session['filepath'])
     students = df.to_dict(orient='records')
     return render_template('scan.html', students=students, session_id=session_id)
 
@@ -107,7 +109,7 @@ def submit_attendance():
     except ValueError:
         return "Invalid latitude or longitude"
 
-    sessions.update(load_sessions())
+    sessions = load_sessions()
     session = sessions.get(session_id)
     if not session:
         return "Invalid session."
