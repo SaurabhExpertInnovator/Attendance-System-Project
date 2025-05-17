@@ -43,21 +43,31 @@
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            transition: background-color 0.3s ease;
-            width: 100%;
         }
         a button:hover {
-            background-color: #218838;
+            background-color: #1e7e34;
+        }
+        .session-info {
+            font-size: 14px;
+            margin-top: 20px;
+            color: #666;
+            word-break: break-word;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Scan this QR Code to Mark Attendance</h1>
+        <h1>Your Attendance QR Code</h1>
         <img src="{{ url_for('static', filename=qr_path) }}" alt="QR Code" />
-        <a href="{{ url_for('download', session_id=session_id) }}">
-            <button>Download Attendance CSV</button>
-        </a>
+        <a href="{{ session_url }}" target="_blank"><button>Open Attendance Page</button></a>
+        <div class="session-info">
+            <p>Session ID: {{ session_id }}</p>
+        </div>
+        <div style="margin-top: 20px;">
+            <a href="{{ url_for('download_attendance', session_id=session_id) }}">
+                <button>Download Attendance Sheet</button>
+            </a>
+        </div>
     </div>
 </body>
 </html>
