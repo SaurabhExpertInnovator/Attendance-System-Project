@@ -1,10 +1,13 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, send_file
 import pandas as pd
 import os
 import uuid
 import qrcode
 import json
 from datetime import datetime
+from io import BytesIO
+from pytz import timezone
+import math
 
 app = Flask(__name__)
 
@@ -13,6 +16,10 @@ BASE_URL = os.environ.get("BASE_URL", "https://attendance-system-project.onrende
 
 # Persistent storage file for session metadata
 SESSION_FILE = "session_data.json"
+
+# Ensure static/qr folder exists
+qr_folder = os.path.join('static', 'qr')
+os.makedirs(qr_folder, exist_ok=True)
 
 # Load or initialize session storage
 def load_sessions():
@@ -27,15 +34,17 @@ def save_sessions(data):
 
 sessions = load_sessions()
 
-def save_attendance(session_id, student_id, lat, lon):
-    attendance_file = f"attendance_{session_id}.csv"
-    df = pd.read_csv(sessions[session_id]['filepath'])
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    df.loc[df['Student ID'] == student_id, 'Attendance'] = f"Present ({timestamp})"
-    df.loc[df['Student ID'] == student_id, 'Latitude'] = lat
-    df.loc[df['Student ID'] == student_id, 'Longitude'] = lon
-    df.to_csv(attendance_file, index=False)
-    return attendance_file
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371000
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    d_phi = math.radians(lat2 - lat1)
+    d_lambda = math.radians(lon2 - lon1)
+
+    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    return R * c
 
 @app.route('/')
 def index():
@@ -44,8 +53,9 @@ def index():
 @app.route('/generate_qr', methods=['POST'])
 def generate_qr():
     file = request.files['csv_file']
-    lat = request.form['latitude']
-    lon = request.form['longitude']
+    lat = float(request.form['latitude'])
+    lon = float(request.form['longitude'])
+    radius = float(request.form['radius'])
 
     df = pd.read_csv(file)
     df['Attendance'] = 'Absent'
@@ -59,20 +69,21 @@ def generate_qr():
     sessions[session_id] = {
         'filepath': filepath,
         'latitude': lat,
-        'longitude': lon
+        'longitude': lon,
+        'radius': radius
     }
     save_sessions(sessions)
 
     session_url = f"{BASE_URL}/scan/{session_id}"
     qr = qrcode.make(session_url)
-    qr_path = f"static/qr_{session_id}.png"
+    qr_path = f"{qr_folder}/qr_{session_id}.png"
     qr.save(qr_path)
 
     return render_template('qr_display.html', qr_path=qr_path, session_url=session_url)
 
 @app.route('/scan/<session_id>')
 def scan(session_id):
-    sessions.update(load_sessions())  # Reload sessions in case of new restart
+    sessions.update(load_sessions())
     if session_id not in sessions:
         return "Invalid session ID"
 
@@ -90,8 +101,30 @@ def submit_attendance():
     if not lat or not lon:
         return "Location access is required to mark attendance"
 
-    sessions.update(load_sessions())  # Ensure latest session data
-    save_attendance(session_id, student_id, lat, lon)
+    try:
+        lat = float(lat)
+        lon = float(lon)
+    except ValueError:
+        return "Invalid latitude or longitude"
+
+    sessions.update(load_sessions())
+    session = sessions.get(session_id)
+    if not session:
+        return "Invalid session."
+
+    dist = haversine(lat, lon, session['latitude'], session['longitude'])
+    if dist > session['radius']:
+        return "You are outside the allowed area. Attendance not marked."
+
+    df = pd.read_csv(session['filepath'])
+    timestamp = datetime.now(timezone('Asia/Kolkata')).strftime("%Y-%m-%d %H:%M:%S")
+    df.loc[df['Student ID'] == student_id, 'Attendance'] = f"Present ({timestamp})"
+    df.loc[df['Student ID'] == student_id, 'Latitude'] = lat
+    df.loc[df['Student ID'] == student_id, 'Longitude'] = lon
+
+    attendance_file = f"attendance_{session_id}.csv"
+    df.to_csv(attendance_file, index=False)
+
     return "Attendance marked successfully. Thank you!"
 
 @app.route('/download/<session_id>')
@@ -99,7 +132,8 @@ def download_attendance(session_id):
     attendance_file = f"attendance_{session_id}.csv"
     if not os.path.exists(attendance_file):
         return "Attendance file not found"
-    return redirect(f"/{attendance_file}")
+
+    return send_file(attendance_file, as_attachment=True, download_name=f'attendance_{session_id}.csv')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0')
