@@ -11,15 +11,19 @@ import math
 
 app = Flask(__name__)
 
-# Use your local IP with port 5000 to allow LAN access
-BASE_URL = "http://172.20.67.110:5000"
+# Use local IP address for QR code link generation
+LOCAL_IP = "172.20.67.110"
+PORT = 5000
+BASE_URL = f"http://{LOCAL_IP}:{PORT}"
 
+# Persistent storage file for session metadata
 SESSION_FILE = "session_data.json"
 
 # Ensure static/qr folder exists
 qr_folder = os.path.join('static', 'qr')
 os.makedirs(qr_folder, exist_ok=True)
 
+# Load or initialize session storage
 def load_sessions():
     if os.path.exists(SESSION_FILE):
         with open(SESSION_FILE, 'r') as f:
@@ -77,32 +81,23 @@ def generate_qr():
     qr_path = f"{qr_folder}/qr_{session_id}.png"
     qr.save(qr_path)
 
-    # qr_path for url_for is relative to static folder
-    qr_url_path = f"qr/qr_{session_id}.png"
-
-    return render_template('qr_display.html', qr_path=qr_url_path, session_url=session_url, session_id=session_id)
+    return render_template('qr_display.html', qr_path=f"qr/qr_{session_id}.png", session_url=session_url, session_id=session_id)
 
 @app.route('/scan/<session_id>')
 def scan(session_id):
-    global sessions
     sessions.update(load_sessions())
     if session_id not in sessions:
         return "Invalid session ID"
 
     df = pd.read_csv(sessions[session_id]['filepath'])
     students = df.to_dict(orient='records')
+    return render_template('student_list.html', students=students, session_id=session_id, roll_col='Student ID', name_col='Name')
 
-    # Assuming your CSV columns for student are named as below,
-    # update these if different in your CSV
-    roll_col = 'Student ID'
-    name_col = 'Name'
-
-    return render_template('student_list.html', students=students, session_id=session_id, roll_col=roll_col, name_col=name_col)
-
-@app.route('/mark', methods=['POST'])
+@app.route('/submit_attendance', methods=['POST'])
 def submit_attendance():
     session_id = request.form['session_id']
-    student_id = request.form.get('roll_number')
+    student_id = request.form['roll_number']
+    student_name = request.form['name']
     lat = request.form['latitude']
     lon = request.form['longitude']
 
@@ -144,4 +139,4 @@ def download_attendance(session_id):
     return send_file(attendance_file, as_attachment=True, download_name=f'attendance_{session_id}.csv')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5000)
