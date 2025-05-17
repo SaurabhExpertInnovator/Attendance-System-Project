@@ -27,14 +27,15 @@ os.makedirs(qr_folder, exist_ok=True)
 def load_sessions():
     if os.path.exists(SESSION_FILE):
         with open(SESSION_FILE, 'r') as f:
-            return json.load(f)
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                return {}
     return {}
 
 def save_sessions(data):
     with open(SESSION_FILE, 'w') as f:
         json.dump(data, f)
-
-sessions = load_sessions()
 
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371000
@@ -42,10 +43,8 @@ def haversine(lat1, lon1, lat2, lon2):
     phi2 = math.radians(lat2)
     d_phi = math.radians(lat2 - lat1)
     d_lambda = math.radians(lon2 - lon1)
-
     a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
     return R * c
 
 @app.route('/')
@@ -68,6 +67,7 @@ def generate_qr():
     filepath = f"session_{session_id}.csv"
     df.to_csv(filepath, index=False)
 
+    sessions = load_sessions()
     sessions[session_id] = {
         'filepath': filepath,
         'latitude': lat,
@@ -85,7 +85,7 @@ def generate_qr():
 
 @app.route('/scan/<session_id>')
 def scan(session_id):
-    sessions.update(load_sessions())
+    sessions = load_sessions()
     if session_id not in sessions:
         return "Invalid session ID"
 
@@ -110,10 +110,10 @@ def submit_attendance():
     except ValueError:
         return "Invalid latitude or longitude"
 
-    sessions.update(load_sessions())
+    sessions = load_sessions()
     session = sessions.get(session_id)
     if not session:
-        return "Invalid session."
+        return "Invalid session ID"
 
     dist = haversine(lat, lon, session['latitude'], session['longitude'])
     if dist > session['radius']:
