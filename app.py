@@ -25,17 +25,24 @@ os.makedirs(qr_folder, exist_ok=True)
 
 # Load or initialize session storage
 def load_sessions():
+    print(f"Loading session data from: {SESSION_FILE}")
     if os.path.exists(SESSION_FILE):
         with open(SESSION_FILE, 'r') as f:
             try:
-                return json.load(f)
+                sessions = json.load(f)
+                print(f"Loaded sessions: {sessions}")
+                return sessions
             except json.JSONDecodeError:
+                print("JSON decode error in session file.")
                 return {}
+    print("Session file not found.")
     return {}
 
 def save_sessions(data):
+    print(f"Saving session data to: {SESSION_FILE}")
     with open(SESSION_FILE, 'w') as f:
         json.dump(data, f)
+        print(f"Saved sessions: {data}")
 
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371000
@@ -85,7 +92,9 @@ def generate_qr():
 
 @app.route('/scan/<session_id>')
 def scan(session_id):
+    print(f"Scan route accessed with session_id: {session_id}")
     sessions = load_sessions()
+    print(f"Available session keys: {list(sessions.keys())}")
     if session_id not in sessions:
         return "Invalid session ID"
 
