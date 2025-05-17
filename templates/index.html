@@ -61,8 +61,8 @@
 <body>
     <div class="container">
         <h1>Generate QR Code for Attendance</h1>
-        <form action="/upload" method="post" enctype="multipart/form-data" onsubmit="return validateForm();">
-            <input type="file" name="file" required />
+        <form action="/generate_qr" method="post" enctype="multipart/form-data" onsubmit="return validateForm();">
+            <input type="file" name="csv_file" required />
             
             <label for="radius">Allowed radius (meters):</label>
             <input type="number" id="radius" name="radius" min="1" required placeholder="Enter radius in meters" />
