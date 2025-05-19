@@ -14,18 +14,14 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
-# Ensure static/qr folder exists
 qr_folder = os.path.join('static', 'qr')
 os.makedirs(qr_folder, exist_ok=True)
 
-sessions = {}  # session_id -> session details
-attendance = {}  # session_id -> list of marked entries
-
-# ✅ Dynamic BASE_URL for local & deployed
-BASE_URL = os.getenv('BASE_URL', 'http://localhost:5000/')
+sessions = {}
+attendance = {}
 
 def haversine(lat1, lon1, lat2, lon2):
-    R = 6371000  # meters
+    R = 6371000
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)
     d_phi = math.radians(lat2 - lat1)
@@ -35,6 +31,12 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     return R * c
+
+# Dynamic base URL (for local + Render)
+def get_base_url():
+    if 'RENDER_EXTERNAL_URL' in os.environ:
+        return f"https://{os.environ['RENDER_EXTERNAL_URL']}"
+    return f"http://{request.host}"
 
 @app.route('/')
 def index():
@@ -67,7 +69,7 @@ def upload():
             'radius': radius
         }
 
-        url = BASE_URL + 'scan/' + session_id
+        url = get_base_url() + '/scan/' + session_id
         qr = qrcode.make(url)
 
         qr_path = os.path.join(qr_folder, session_id + '.png')
@@ -144,4 +146,4 @@ def download(session_id):
     return send_file(output, mimetype='text/csv', as_attachment=True, download_name=f'attendance_{session_id}.csv')
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
+    app.run(debug=True)
