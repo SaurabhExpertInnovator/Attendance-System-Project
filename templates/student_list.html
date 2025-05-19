@@ -37,20 +37,15 @@
       border-radius: 6px;
       cursor: pointer;
     }
-    .submit-btn:hover {
-      background-color: #004d40;
+    .submit-btn:disabled {
+      background-color: #999;
+      cursor: not-allowed;
     }
     .note {
       color: red;
       font-weight: bold;
       margin-top: 10px;
       text-align: center;
-    }
-    .distance-info {
-      margin-top: 10px;
-      text-align: center;
-      font-weight: bold;
-      color: #004d40;
     }
   </style>
 </head>
@@ -62,7 +57,7 @@
     <input type="hidden" name="session_id" value="{{ session_id }}">
     <input type="hidden" id="latitude" name="latitude" />
     <input type="hidden" id="longitude" name="longitude" />
-    
+
     <table>
       <tr>
         <th>Select</th>
@@ -73,97 +68,56 @@
       <tr>
         <td>
           <input type="radio" name="roll_number" value="{{ student[roll_col] }}" required
-                 data-name="{{ student[name_col] }}" />
+                 data-name="{{ student[name_col] }}">
         </td>
         <td>{{ student[roll_col] }}</td>
         <td>{{ student[name_col] }}</td>
       </tr>
       {% endfor %}
     </table>
-    
+
     <input type="hidden" name="name" id="student_name" />
     <button type="submit" class="submit-btn" id="submitBtn" disabled>Submit Attendance</button>
   </form>
 
-  <div class="distance-info" id="distanceInfo"></div>
-
   <script>
-    const allowedLat = {{ allowed_lat }};
-    const allowedLon = {{ allowed_lon }};
-    const allowedRadius = {{ allowed_radius }};
-
-    function haversine(lat1, lon1, lat2, lon2) {
-      const toRad = x => x * Math.PI / 180;
-      const R = 6371000; // meters
-
-      const dLat = toRad(lat2 - lat1);
-      const dLon = toRad(lon2 - lon1);
-
-      const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-        Math.sin(dLon / 2) ** 2;
-
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-      return R * c;
-    }
-
-    window.onload = function () {
+    // On load, try to get location
+    window.onload = function() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-          function (position) {
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            document.getElementById("latitude").value = lat;
-            document.getElementById("longitude").value = lon;
+          function(position) {
+            document.getElementById("latitude").value = position.coords.latitude;
+            document.getElementById("longitude").value = position.coords.longitude;
             document.getElementById("note").style.display = "none";
-
-            const dist = haversine(lat, lon, allowedLat, allowedLon);
-            const distElem = document.getElementById("distanceInfo");
-
-            if (dist <= allowedRadius) {
-              distElem.style.color = "green";
-              distElem.textContent = `You are within the allowed radius (${dist.toFixed(1)} meters). You can submit attendance.`;
-              document.getElementById("submitBtn").disabled = false;
-            } else {
-              distElem.style.color = "red";
-              distElem.textContent = `You are outside the allowed radius (${dist.toFixed(1)} meters). Attendance cannot be marked.`;
-              document.getElementById("submitBtn").disabled = true;
-            }
+            document.getElementById("submitBtn").disabled = false;
           },
-          function (error) {
+          function(error) {
             document.getElementById("note").innerText = "Location access denied or unavailable. Attendance cannot be marked.";
-            alert("Error: " + error.message + "\nPlease refresh and allow location access.");
+            alert("Please allow location access and refresh the page to mark attendance.");
             document.getElementById("submitBtn").disabled = true;
-          },
-          { enableHighAccuracy: true }
+          }
         );
       } else {
         alert("Geolocation is not supported by your browser.");
+        document.getElementById("note").innerText = "Geolocation is not supported by your browser.";
+        document.getElementById("submitBtn").disabled = true;
       }
     };
 
+    // Update hidden name field when a student is selected
     document.querySelectorAll('input[name="roll_number"]').forEach(radio => {
-      radio.addEventListener('change', function () {
-        const selectedName = this.getAttribute('data-name');
-        document.getElementById('student_name').value = selectedName;
+      radio.addEventListener('change', function() {
+        document.getElementById('student_name').value = this.getAttribute('data-name');
       });
     });
 
-    document.getElementById('attendanceForm').addEventListener('submit', function (e) {
+    // Prevent submit if location is missing
+    document.getElementById('attendanceForm').addEventListener('submit', function(e) {
       const lat = document.getElementById("latitude").value;
       const lon = document.getElementById("longitude").value;
-
       if (!lat || !lon) {
         e.preventDefault();
         alert("Location access is required to submit attendance.");
-      } else {
-        const dist = haversine(parseFloat(lat), parseFloat(lon), allowedLat, allowedLon);
-        if (dist > allowedRadius) {
-          e.preventDefault();
-          alert(`You are outside the allowed area (${dist.toFixed(1)} meters). Attendance cannot be marked.`);
-        }
       }
     });
   </script>
