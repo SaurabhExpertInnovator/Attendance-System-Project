@@ -32,10 +32,10 @@ def haversine(lat1, lon1, lat2, lon2):
 
     return R * c
 
-# Dynamic base URL (for local + Render)
+# ✅ Fixed: Prevent double "https://" bug
 def get_base_url():
     if 'RENDER_EXTERNAL_URL' in os.environ:
-        return f"https://{os.environ['RENDER_EXTERNAL_URL']}"
+        return os.environ['RENDER_EXTERNAL_URL'].rstrip('/')
     return f"http://{request.host}"
 
 @app.route('/')
