@@ -80,7 +80,6 @@
   </form>
 
   <script>
-    // Automatically get location on page load
     window.onload = function() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -101,7 +100,6 @@
       }
     };
 
-    // Update hidden name field when a student is selected
     document.querySelectorAll('input[name="roll_number"]').forEach(radio => {
       radio.addEventListener('change', function() {
         const selectedName = this.getAttribute('data-name');
@@ -109,7 +107,6 @@
       });
     });
 
-    // Ensure form does not submit if location is missing
     document.getElementById('attendanceForm').addEventListener('submit', function(e) {
       const lat = document.getElementById("latitude").value;
       const lon = document.getElementById("longitude").value;
