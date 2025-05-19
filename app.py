@@ -1,3 +1,4 @@
+#app.py
 from flask import Flask, render_template, request, redirect, url_for, send_file
 import pandas as pd
 import qrcode
@@ -14,14 +15,18 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
+# Ensure static/qr folder exists
 qr_folder = os.path.join('static', 'qr')
 os.makedirs(qr_folder, exist_ok=True)
 
-sessions = {}
-attendance = {}
+sessions = {}  # session_id -> session details
+attendance = {}  # session_id -> list of marked entries
+
+# ✅ Use Render public URL instead of localhost
+BASE_URL = 'https://attendance-system-project.onrender.com/'
 
 def haversine(lat1, lon1, lat2, lon2):
-    R = 6371000
+    R = 6371000  # Earth radius in meters
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)
     d_phi = math.radians(lat2 - lat1)
@@ -31,12 +36,6 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     return R * c
-
-# ✅ Fixed: Prevent double "https://" bug
-def get_base_url():
-    if 'RENDER_EXTERNAL_URL' in os.environ:
-        return os.environ['RENDER_EXTERNAL_URL'].rstrip('/')
-    return f"http://{request.host}"
 
 @app.route('/')
 def index():
@@ -52,9 +51,12 @@ def upload():
     if not latitude or not longitude or not radius:
         return 'Location and radius are required.'
 
-    latitude = float(latitude)
-    longitude = float(longitude)
-    radius = float(radius)
+    try:
+        latitude = float(latitude)
+        longitude = float(longitude)
+        radius = float(radius)
+    except ValueError:
+        return 'Invalid location or radius values.'
 
     if file:
         df = pd.read_csv(file)
@@ -69,7 +71,7 @@ def upload():
             'radius': radius
         }
 
-        url = get_base_url() + '/scan/' + session_id
+        url = BASE_URL + 'scan/' + session_id
         qr = qrcode.make(url)
 
         qr_path = os.path.join(qr_folder, session_id + '.png')
@@ -114,8 +116,9 @@ def mark_attendance():
         return 'Invalid session.'
 
     dist = haversine(lat, lon, session['latitude'], session['longitude'])
+    print(f"Distance from center: {dist:.2f} meters")
     if dist > session['radius']:
-        return 'You are outside the allowed area. Attendance not marked.'
+        return f'You are outside the allowed area (Distance: {dist:.2f} m). Attendance not marked.'
 
     if session_id not in attendance:
         attendance[session_id] = []
@@ -146,4 +149,4 @@ def download(session_id):
     return send_file(output, mimetype='text/csv', as_attachment=True, download_name=f'attendance_{session_id}.csv')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5000)
