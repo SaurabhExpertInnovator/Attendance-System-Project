@@ -21,11 +21,11 @@ os.makedirs(qr_folder, exist_ok=True)
 sessions = {}  # session_id -> session details
 attendance = {}  # session_id -> list of marked entries
 
-# ✅ Use your local IP instead of localhost for QR to work on phone
-BASE_URL = 'http://172.20.90.58:5000/'
+# ✅ Dynamic BASE_URL for local & deployed
+BASE_URL = os.getenv('BASE_URL', 'http://localhost:5000/')
 
 def haversine(lat1, lon1, lat2, lon2):
-    R = 6371000  # Earth radius in meters
+    R = 6371000  # meters
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)
     d_phi = math.radians(lat2 - lat1)
@@ -144,5 +144,4 @@ def download(session_id):
     return send_file(output, mimetype='text/csv', as_attachment=True, download_name=f'attendance_{session_id}.csv')
 
 if __name__ == '__main__':
-    # ✅ Ensure this is used so Flask is accessible from your phone
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
