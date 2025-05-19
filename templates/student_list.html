@@ -1,110 +1,123 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>Mark Attendance</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #eef6ff;
-            display: flex;
-            justify-content: center;
-            padding: 20px;
-        }
-        .container {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            max-width: 450px;
-            width: 100%;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-        h2 {
-            color: #004080;
-            margin-bottom: 20px;
-        }
-        select, button {
-            width: 100%;
-            padding: 12px;
-            margin-top: 10px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-            font-size: 16px;
-        }
-        button {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            cursor: pointer;
-            margin-top: 20px;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        .message {
-            margin-top: 15px;
-            font-weight: bold;
-            color: green;
-        }
-        .error {
-            color: red;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Select Your Name</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #e0f7fa;
+      padding: 30px;
+    }
+    h2 {
+      text-align: center;
+      color: #00796b;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 12px;
+      border: 1px solid #ccc;
+      text-align: center;
+    }
+    tr:hover {
+      background-color: #b2dfdb;
+    }
+    .submit-btn {
+      margin-top: 20px;
+      display: block;
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #00796b;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .submit-btn:hover {
+      background-color: #004d40;
+    }
+    .note {
+      color: red;
+      font-weight: bold;
+      margin-top: 10px;
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h2>Select Your Name to Mark Attendance</h2>
-        <form id="attendanceForm" method="POST" action="{{ url_for('submit_attendance') }}">
-            <select name="roll_number" required>
-                <option value="" disabled selected>Select your name</option>
-                {% for student in students %}
-                    <option value="{{ student[roll_col] }}">{{ student[name_col] }}</option>
-                {% endfor %}
-            </select>
+  <h2>Select Your Name and Roll Number</h2>
+  <div class="note" id="note">Fetching your location... Please allow location access.</div>
 
-            <input type="hidden" name="session_id" value="{{ session_id }}" />
-            <input type="hidden" name="latitude" id="latitude" />
-            <input type="hidden" name="longitude" id="longitude" />
+  <form id="attendanceForm" method="POST" action="/mark">
+    <input type="hidden" name="session_id" value="{{ session_id }}">
+    <input type="hidden" id="latitude" name="latitude">
+    <input type="hidden" id="longitude" name="longitude">
 
-            <button type="submit">Mark Attendance</button>
-        </form>
-        <div id="responseMessage" class="message"></div>
-    </div>
+    <table>
+      <tr>
+        <th>Select</th>
+        <th>{{ roll_col }}</th>
+        <th>{{ name_col }}</th>
+      </tr>
+      {% for student in students %}
+      <tr>
+        <td>
+          <input type="radio" name="roll_number" value="{{ student[roll_col] }}" required
+                 data-name="{{ student[name_col] }}">
+        </td>
+        <td>{{ student[roll_col] }}</td>
+        <td>{{ student[name_col] }}</td>
+      </tr>
+      {% endfor %}
+    </table>
 
-    <script>
-        const form = document.getElementById('attendanceForm');
-        const latInput = document.getElementById('latitude');
-        const lonInput = document.getElementById('longitude');
-        const responseMessage = document.getElementById('responseMessage');
+    <input type="hidden" name="name" id="student_name">
+    <button type="submit" class="submit-btn" id="submitBtn" disabled>Submit Attendance</button>
+  </form>
 
-        function getLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        latInput.value = position.coords.latitude.toFixed(6);
-                        lonInput.value = position.coords.longitude.toFixed(6);
-                    },
-                    () => {
-                        alert("Location is required to mark attendance.");
-                    },
-                    { timeout: 10000 }
-                );
-            } else {
-                alert("Geolocation is not supported by your browser.");
-            }
-        }
+  <script>
+    // Automatically get location on page load
+    window.onload = function() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          function(position) {
+            document.getElementById("latitude").value = position.coords.latitude;
+            document.getElementById("longitude").value = position.coords.longitude;
+            document.getElementById("note").style.display = "none";
+            document.getElementById("submitBtn").disabled = false;
+          },
+          function(error) {
+            document.getElementById("note").innerText = "Location access denied or unavailable. Attendance cannot be marked.";
+            alert("Error: " + error.message + "\nPlease refresh and allow location access.");
+          },
+          { enableHighAccuracy: true }
+        );
+      } else {
+        alert("Geolocation is not supported by your browser.");
+      }
+    };
 
-        form.addEventListener('submit', function (event) {
-            if (!latInput.value || !lonInput.value) {
-                event.preventDefault();
-                alert("Please allow location access to mark attendance.");
-                getLocation();
-            }
-        });
+    // Update hidden name field when a student is selected
+    document.querySelectorAll('input[name="roll_number"]').forEach(radio => {
+      radio.addEventListener('change', function() {
+        const selectedName = this.getAttribute('data-name');
+        document.getElementById('student_name').value = selectedName;
+      });
+    });
 
-        // Get location as soon as page loads
-        window.onload = getLocation;
-    </script>
+    // Ensure form does not submit if location is missing
+    document.getElementById('attendanceForm').addEventListener('submit', function(e) {
+      const lat = document.getElementById("latitude").value;
+      const lon = document.getElementById("longitude").value;
+      if (!lat || !lon) {
+        e.preventDefault();
+        alert("Location access is required to submit attendance.");
+      }
+    });
+  </script>
 </body>
 </html>
