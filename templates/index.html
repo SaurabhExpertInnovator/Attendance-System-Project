@@ -67,8 +67,11 @@
       <label for="radius">Allowed radius (meters):</label>
       <input type="number" id="radius" name="radius" min="1" required placeholder="Enter radius in meters" />
 
-      <input type="hidden" id="latitude" name="latitude" required />
-      <input type="hidden" id="longitude" name="longitude" required />
+      <label for="latitude">Latitude:</label>
+      <input type="text" id="latitude" name="latitude" placeholder="Latitude" required />
+
+      <label for="longitude">Longitude:</label>
+      <input type="text" id="longitude" name="longitude" placeholder="Longitude" required />
 
       <div id="location-status" class="note"></div>
 
@@ -83,7 +86,11 @@
 
     function validateForm() {
       if (!latitudeInput.value || !longitudeInput.value) {
-        alert('Location is required.');
+        alert('Latitude and Longitude are required.');
+        return false;
+      }
+      if (!document.getElementById('radius').value) {
+        alert('Please enter the allowed radius.');
         return false;
       }
       return true;
@@ -103,7 +110,7 @@
             setLocationStatus('Location detected automatically.');
           },
           () => {
-            setLocationStatus('Could not detect location. Please refresh or try another browser.', true);
+            setLocationStatus('Could not detect location automatically. Please enter manually.', true);
           },
           { timeout: 10000 }
         );
