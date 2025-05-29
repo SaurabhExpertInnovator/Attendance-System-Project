@@ -1,6 +1,4 @@
-#app.py
-#app.py
-from flask import Flask, render_template, request, redirect, url_for, send_file
+from flask import Flask, render_template, request, send_file
 import pandas as pd
 import qrcode
 import uuid
@@ -16,18 +14,17 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
-# Ensure static/qr folder exists
 qr_folder = os.path.join('static', 'qr')
 os.makedirs(qr_folder, exist_ok=True)
 
 sessions = {}  # session_id -> session details
-attendance = {}  # session_id -> list of marked entries
+attendance = {}  # session_id -> list of marked attendance dicts
 
-# ✅ Use Render public URL instead of localhost
+# Use Render public URL for deployed app
 BASE_URL = 'https://attendance-system-project.onrender.com/'
 
 def haversine(lat1, lon1, lat2, lon2):
-    R = 6371000  # Earth radius in meters
+    R = 6371000  # meters
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)
     d_phi = math.radians(lat2 - lat1)
@@ -35,7 +32,6 @@ def haversine(lat1, lon1, lat2, lon2):
 
     a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
     return R * c
 
 @app.route('/')
@@ -44,7 +40,7 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    file = request.files['file']
+    file = request.files.get('file')
     latitude = request.form.get('latitude')
     longitude = request.form.get('longitude')
     radius = request.form.get('radius')
@@ -74,7 +70,6 @@ def upload():
 
         url = BASE_URL + 'scan/' + session_id
         qr = qrcode.make(url)
-
         qr_path = os.path.join(qr_folder, session_id + '.png')
         qr.save(qr_path)
 
@@ -97,9 +92,9 @@ def scan(session_id):
 
 @app.route('/mark', methods=['POST'])
 def mark_attendance():
-    session_id = request.form['session_id']
-    name = request.form['name']
-    roll = request.form['roll_number']
+    session_id = request.form.get('session_id')
+    name = request.form.get('name')
+    roll = request.form.get('roll_number')
     lat = request.form.get('latitude')
     lon = request.form.get('longitude')
 
@@ -117,13 +112,13 @@ def mark_attendance():
         return 'Invalid session.'
 
     dist = haversine(lat, lon, session['latitude'], session['longitude'])
-    print(f"Distance from center: {dist:.2f} meters")
     if dist > session['radius']:
         return f'You are outside the allowed area (Distance: {dist:.2f} m). Attendance not marked.'
 
     if session_id not in attendance:
         attendance[session_id] = []
 
+    # Prevent multiple attendance for same roll number
     for record in attendance[session_id]:
         if record['roll'] == roll:
             return 'Attendance already marked for this roll number.'
@@ -140,13 +135,28 @@ def mark_attendance():
 
 @app.route('/download/<session_id>')
 def download(session_id):
+    session = sessions.get(session_id)
+    if not session:
+        return 'Invalid session.'
+
     if session_id not in attendance:
         return 'No attendance data for this session.'
 
-    df = pd.DataFrame(attendance[session_id])
+    df = pd.read_csv(session['filename'])
+    attendance_records = attendance[session_id]
+
+    # Column name as current IST date-time
+    col_name = datetime.now(timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S')
+
+    present_rolls = {record['roll']: 1 for record in attendance_records}
+
+    # Add attendance column: 1 for present, 0 for absent
+    df[col_name] = df[df.columns[0]].apply(lambda roll: present_rolls.get(roll, 0))
+
     output = BytesIO()
     df.to_csv(output, index=False)
     output.seek(0)
+
     return send_file(output, mimetype='text/csv', as_attachment=True, download_name=f'attendance_{session_id}.csv')
 
 if __name__ == '__main__':
