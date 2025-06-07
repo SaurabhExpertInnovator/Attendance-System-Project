@@ -88,7 +88,7 @@ def scan(session_id):
     roll_col = df.columns[0]
     name_col = df.columns[1]
 
-    return render_template('student_list.html', students=students, session_id=session_id, roll_col=roll_col, name_col=name_col)
+    return render_template('roll_entry.html', students=students, session_id=session_id, roll_col=roll_col, name_col=name_col)
 
 @app.route('/mark', methods=['POST'])
 def mark_attendance():
