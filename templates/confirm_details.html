@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Confirm Your Details</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 40px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+        .details {
+            margin: 20px 0;
+            font-size: 1.1em;
+            color: #444;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #4caf50;
+            border: none;
+            color: white;
+            font-size: 1em;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .error {
+            color: red;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .option-link {
+            display: block;
+            margin-top: 15px;
+            text-align: center;
+            color: #007BFF;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h2>Confirm Your Details</h2>
+
+    <div class="details">
+        <strong>Name:</strong> {{ student[name_col] }}<br />
+        <strong>Roll Number:</strong> {{ student[roll_col] }}
+    </div>
+
+    <form method="POST" action="{{ url_for('mark_attendance') }}">
+        <input type="hidden" name="session_id" value="{{ session_id }}" />
+        <input type="hidden" name="name" value="{{ student[name_col] }}" />
+        <input type="hidden" name="roll_number" value="{{ student[roll_col] }}" />
+
+        <input type="hidden" id="latitude" name="latitude" />
+        <input type="hidden" id="longitude" name="longitude" />
+
+        <button type="submit">Confirm and Mark Attendance</button>
+    </form>
+
+    <a href="{{ url_for('scan', session_id=session_id) }}" class="option-link">My details are not correct</a>
+
+    <script>
+        // Get location using Geolocation API and fill hidden fields
+        function fillLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    document.getElementById('latitude').value = position.coords.latitude;
+                    document.getElementById('longitude').value = position.coords.longitude;
+                }, function(error) {
+                    alert('Location access is needed to mark attendance.');
+                });
+            } else {
+                alert('Geolocation is not supported by your browser.');
+            }
+        }
+        fillLocation();
+    </script>
+</body>
+</html>
