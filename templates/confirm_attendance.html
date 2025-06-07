@@ -1,77 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Confirm Details - Attendance</title>
-    <style>
-        body { font-family: Arial; background:#f0f4f8; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;}
-        .container { background:white; padding:25px 30px; border-radius:8px; box-shadow:0 0 15px rgba(0,0,0,0.1); max-width:400px; width:100%; text-align:center;}
-        h2 { margin-bottom: 20px; color:#333; }
-        p { font-size: 18px; margin-bottom: 25px; color:#555; }
-        button, a.button {
-            padding: 12px 25px;
-            border-radius: 5px;
-            font-weight: bold;
-            font-size: 16px;
-            cursor: pointer;
-            border: none;
-            margin: 5px;
-            text-decoration: none;
-            display: inline-block;
-        }
-        button {
-            background-color: #28a745;
-            color: white;
-            transition: background-color 0.3s ease;
-        }
-        button:hover { background-color: #1e7e34; }
-        a.button {
-            background-color: #dc3545;
-            color: white;
-        }
-        a.button:hover { background-color: #a71d2a; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Attendance Status</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 400px;
+      margin: 60px auto;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background-color: #f4f4f4;
+      text-align: center;
+    }
+    h2 {
+      color: #333;
+    }
+    .message {
+      margin-top: 20px;
+      font-size: 1.2em;
+      color: #555;
+    }
+    a {
+      display: inline-block;
+      margin-top: 30px;
+      text-decoration: none;
+      color: white;
+      background-color: #4caf50;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-weight: bold;
+      transition: background-color 0.3s ease;
+    }
+    a:hover {
+      background-color: #45a049;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h2>Confirm Your Details</h2>
-        <p><strong>{{ roll_col | capitalize }}:</strong> {{ student[roll_col] }}</p>
-        <p><strong>{{ name_col | capitalize }}:</strong> {{ student[name_col] }}</p>
-
-        <form method="POST" action="{{ url_for('mark') }}" style="display:inline-block;">
-            <input type="hidden" name="session_id" value="{{ session_id }}">
-            <input type="hidden" name="roll_number" value="{{ student[roll_col] }}">
-            <input type="hidden" name="name" value="{{ student[name_col] }}">
-            <!-- You still need to pass location: you can add hidden inputs and fill via JS -->
-            <input type="hidden" id="latitude" name="latitude" required>
-            <input type="hidden" id="longitude" name="longitude" required>
-
-            <button type="submit">Confirm & Mark Attendance</button>
-        </form>
-
-        <a href="{{ url_for('scan', session_id=session_id) }}" class="button">Details Not Correct</a>
-    </div>
-
-    <script>
-        // Auto-fill latitude and longitude using Geolocation API
-        function fillLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    function(position) {
-                        document.getElementById('latitude').value = position.coords.latitude;
-                        document.getElementById('longitude').value = position.coords.longitude;
-                    },
-                    function(error) {
-                        alert("Error getting location: " + error.message + ". Please allow location access.");
-                    }
-                );
-            } else {
-                alert("Geolocation is not supported by your browser.");
-            }
-        }
-
-        window.onload = fillLocation;
-    </script>
+  <h2>Attendance Status</h2>
+  <div class="message">
+    {{ message }}
+  </div>
+  <a href="{{ url_for('index') }}">Back to Home</a>
 </body>
 </html>
