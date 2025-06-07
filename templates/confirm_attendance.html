@@ -1,97 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Confirm Details</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f0f8ff;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-    }
-    .card {
-      background: white;
-      padding: 30px 40px;
-      border-radius: 12px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-      width: 90%;
-      max-width: 400px;
-      text-align: center;
-    }
-    h2 {
-      color: #333;
-      margin-top: 0;
-    }
-    .info {
-      margin: 20px 0;
-      font-size: 18px;
-    }
-    button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 10px;
-      font-size: 16px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    #submitBtn {
-      background-color: #28a745;
-      color: white;
-    }
-    #submitBtn:disabled {
-      background-color: #999;
-    }
-    #wrongBtn {
-      background-color: #d9534f;
-      color: white;
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Confirm Details - Attendance</title>
+    <style>
+        body { font-family: Arial; background:#f0f4f8; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;}
+        .container { background:white; padding:25px 30px; border-radius:8px; box-shadow:0 0 15px rgba(0,0,0,0.1); max-width:400px; width:100%; text-align:center;}
+        h2 { margin-bottom: 20px; color:#333; }
+        p { font-size: 18px; margin-bottom: 25px; color:#555; }
+        button, a.button {
+            padding: 12px 25px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            margin: 5px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            transition: background-color 0.3s ease;
+        }
+        button:hover { background-color: #1e7e34; }
+        a.button {
+            background-color: #dc3545;
+            color: white;
+        }
+        a.button:hover { background-color: #a71d2a; }
+    </style>
 </head>
 <body>
-  <div class="card">
-    <h2>Please Confirm Your Details</h2>
-    <div class="info">
-      <p><strong>Name:</strong> {{ name }}</p>
-      <p><strong>Roll Number:</strong> {{ roll }}</p>
+    <div class="container">
+        <h2>Confirm Your Details</h2>
+        <p><strong>{{ roll_col | capitalize }}:</strong> {{ student[roll_col] }}</p>
+        <p><strong>{{ name_col | capitalize }}:</strong> {{ student[name_col] }}</p>
+
+        <form method="POST" action="{{ url_for('mark') }}" style="display:inline-block;">
+            <input type="hidden" name="session_id" value="{{ session_id }}">
+            <input type="hidden" name="roll_number" value="{{ student[roll_col] }}">
+            <input type="hidden" name="name" value="{{ student[name_col] }}">
+            <!-- You still need to pass location: you can add hidden inputs and fill via JS -->
+            <input type="hidden" id="latitude" name="latitude" required>
+            <input type="hidden" id="longitude" name="longitude" required>
+
+            <button type="submit">Confirm & Mark Attendance</button>
+        </form>
+
+        <a href="{{ url_for('scan', session_id=session_id) }}" class="button">Details Not Correct</a>
     </div>
 
-    <form id="attendanceForm" method="POST" action="/mark">
-      <input type="hidden" name="session_id" value="{{ session_id }}">
-      <input type="hidden" name="name" value="{{ name }}">
-      <input type="hidden" name="roll_number" value="{{ roll }}">
-      <input type="hidden" id="latitude" name="latitude">
-      <input type="hidden" id="longitude" name="longitude">
+    <script>
+        // Auto-fill latitude and longitude using Geolocation API
+        function fillLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        document.getElementById('latitude').value = position.coords.latitude;
+                        document.getElementById('longitude').value = position.coords.longitude;
+                    },
+                    function(error) {
+                        alert("Error getting location: " + error.message + ". Please allow location access.");
+                    }
+                );
+            } else {
+                alert("Geolocation is not supported by your browser.");
+            }
+        }
 
-      <button type="submit" id="submitBtn" disabled>Submit Attendance</button>
-    </form>
-
-    <button id="wrongBtn" onclick="window.location.href='/scan/{{ session_id }}'">
-      Details Not Correct
-    </button>
-  </div>
-
-  <script>
-    // Auto-fill GPS location
-    window.onload = () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          pos => {
-            document.getElementById('latitude').value  = pos.coords.latitude;
-            document.getElementById('longitude').value = pos.coords.longitude;
-            document.getElementById('submitBtn').disabled = false;
-          },
-          () => alert('Location access is required to submit attendance.'),
-          { timeout: 10000 }
-        );
-      } else {
-        alert('Geolocation is not supported by your browser.');
-      }
-    };
-  </script>
+        window.onload = fillLocation;
+    </script>
 </body>
 </html>
