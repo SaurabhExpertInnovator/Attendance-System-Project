@@ -23,6 +23,7 @@ attendance = {}  # session_id -> list of marked attendance dicts
 # Use Render public URL for deployed app
 BASE_URL = 'https://attendance-system-project.onrender.com/'
 
+
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371000  # meters
     phi1 = math.radians(lat1)
@@ -34,9 +35,11 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
+
 @app.route('/')
 def index():
     return render_template('index.html')
+
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -77,7 +80,8 @@ def upload():
     else:
         return 'File not uploaded.'
 
-@app.route('/scan/<session_id>', methods=['GET','POST'])
+
+@app.route('/scan/<session_id>', methods=['GET', 'POST'])
 def scan(session_id):
     session = sessions.get(session_id)
     if not session:
@@ -88,7 +92,23 @@ def scan(session_id):
     roll_col = df.columns[0]
     name_col = df.columns[1]
 
-    return render_template('roll_entry.html', students=students, session_id=session_id, roll_col=roll_col, name_col=name_col)
+    if request.method == 'POST':
+        entered_roll = request.form.get('roll_number', '').strip()
+        if not entered_roll:
+            error = "Please enter your roll number."
+            return render_template('roll_entry.html', error=error, session_id=session_id, roll_col=roll_col)
+
+        matched_student = next((s for s in students if str(s[roll_col]).strip().lower() == entered_roll.lower()), None)
+        if matched_student:
+            return render_template('confirm_details.html', student=matched_student, session_id=session_id,
+                                   roll_col=roll_col, name_col=name_col)
+        else:
+            error = "Roll number not found. Please check and try again."
+            return render_template('roll_entry.html', error=error, session_id=session_id, roll_col=roll_col)
+
+    # GET request
+    return render_template('roll_entry.html', session_id=session_id, roll_col=roll_col)
+
 
 @app.route('/mark', methods=['POST'])
 def mark_attendance():
@@ -118,7 +138,6 @@ def mark_attendance():
     if session_id not in attendance:
         attendance[session_id] = []
 
-    # Prevent multiple attendance for same roll number
     for record in attendance[session_id]:
         if record['roll'] == roll:
             return 'Attendance already marked for this roll number.'
@@ -131,7 +150,8 @@ def mark_attendance():
         'timestamp': india_time
     })
 
-    return 'Attendance marked successfully!'
+    return render_template('confirm_attendance.html', message='Attendance marked successfully!')
+
 
 @app.route('/download/<session_id>')
 def download(session_id):
@@ -145,12 +165,10 @@ def download(session_id):
     df = pd.read_csv(session['filename'])
     attendance_records = attendance[session_id]
 
-    # Column name as current IST date-time
     col_name = datetime.now(timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S')
 
     present_rolls = {record['roll']: 1 for record in attendance_records}
 
-    # Add attendance column: 1 for present, 0 for absent
     df[col_name] = df[df.columns[0]].apply(lambda roll: present_rolls.get(roll, 0))
 
     output = BytesIO()
@@ -158,6 +176,7 @@ def download(session_id):
     output.seek(0)
 
     return send_file(output, mimetype='text/csv', as_attachment=True, download_name=f'attendance_{session_id}.csv')
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
