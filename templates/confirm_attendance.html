@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Confirm Details</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f8ff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .card {
+      background: white;
+      padding: 30px 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+    }
+    h2 {
+      color: #333;
+      margin-top: 0;
+    }
+    .info {
+      margin: 20px 0;
+      font-size: 18px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    #submitBtn {
+      background-color: #28a745;
+      color: white;
+    }
+    #submitBtn:disabled {
+      background-color: #999;
+    }
+    #wrongBtn {
+      background-color: #d9534f;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Please Confirm Your Details</h2>
+    <div class="info">
+      <p><strong>Name:</strong> {{ name }}</p>
+      <p><strong>Roll Number:</strong> {{ roll }}</p>
+    </div>
+
+    <form id="attendanceForm" method="POST" action="/mark">
+      <input type="hidden" name="session_id" value="{{ session_id }}">
+      <input type="hidden" name="name" value="{{ name }}">
+      <input type="hidden" name="roll_number" value="{{ roll }}">
+      <input type="hidden" id="latitude" name="latitude">
+      <input type="hidden" id="longitude" name="longitude">
+
+      <button type="submit" id="submitBtn" disabled>Submit Attendance</button>
+    </form>
+
+    <button id="wrongBtn" onclick="window.location.href='/scan/{{ session_id }}'">
+      Details Not Correct
+    </button>
+  </div>
+
+  <script>
+    // Auto-fill GPS location
+    window.onload = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            document.getElementById('latitude').value  = pos.coords.latitude;
+            document.getElementById('longitude').value = pos.coords.longitude;
+            document.getElementById('submitBtn').disabled = false;
+          },
+          () => alert('Location access is required to submit attendance.'),
+          { timeout: 10000 }
+        );
+      } else {
+        alert('Geolocation is not supported by your browser.');
+      }
+    };
+  </script>
+</body>
+</html>
