@@ -5,106 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Enter Roll Number - Attendance</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f0f4f8;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .container {
-            background: white;
-            padding: 25px 30px;
-            border-radius: 8px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.1);
-            max-width: 400px;
-            width: 100%;
-        }
-        h2 {
-            margin-bottom: 20px;
-            color: #333;
-            text-align: center;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #555;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 20px;
-            border: 1.5px solid #ccc;
-            border-radius: 5px;
-            font-size: 16px;
-            box-sizing: border-box;
-        }
-        button {
-            width: 100%;
-            padding: 12px;
-            background-color: #007bff;
-            border: none;
-            color: white;
-            font-weight: bold;
-            font-size: 16px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        .info-text {
-            margin-top: 15px;
-            font-size: 14px;
-            color: #666;
-            text-align: center;
-        }
+        /* same styling as before */
+        body { font-family: Arial; background:#f0f4f8; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;}
+        .container { background:white; padding:25px 30px; border-radius:8px; box-shadow:0 0 15px rgba(0,0,0,0.1); max-width:400px; width:100%; }
+        h2 { margin-bottom: 20px; color:#333; text-align:center; }
+        label { display:block; margin-bottom:8px; color:#555; }
+        input[type="text"] { width:100%; padding:10px; margin-bottom:20px; border:1.5px solid #ccc; border-radius:5px; font-size:16px; box-sizing:border-box; }
+        button { width:100%; padding:12px; background-color:#007bff; border:none; color:white; font-weight:bold; font-size:16px; border-radius:5px; cursor:pointer; transition:background-color 0.3s ease; }
+        button:hover { background-color:#0056b3; }
+        .error { color: red; margin-bottom: 15px; text-align: center; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>Mark Your Attendance</h2>
-        <form method="POST" action="{{ url_for('mark') }}">
-            <input type="hidden" name="session_id" value="{{ session_id }}" />
-            
+        <h2>Enter Your Roll Number</h2>
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
+        <form method="POST" action="{{ url_for('scan', session_id=session_id) }}">
             <label for="roll_number">{{ roll_col | capitalize }}:</label>
-            <input type="text" id="roll_number" name="roll_number" required placeholder="Enter your roll number" />
-
-            <label for="name">{{ name_col | capitalize }}:</label>
-            <input type="text" id="name" name="name" required placeholder="Enter your name" />
-
-            <!-- Hidden inputs for location -->
-            <input type="hidden" id="latitude" name="latitude" required />
-            <input type="hidden" id="longitude" name="longitude" required />
-
+            <input type="text" id="roll_number" name="roll_number" required placeholder="Enter your roll number" autofocus />
             <button type="submit">Next</button>
         </form>
-        <p class="info-text">Please allow location access to mark attendance.</p>
     </div>
-
-    <script>
-        // Auto-fill latitude and longitude using Geolocation API
-        function fillLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    function(position) {
-                        document.getElementById('latitude').value = position.coords.latitude;
-                        document.getElementById('longitude').value = position.coords.longitude;
-                    },
-                    function(error) {
-                        alert("Error getting location: " + error.message + ". Please allow location access.");
-                    }
-                );
-            } else {
-                alert("Geolocation is not supported by your browser.");
-            }
-        }
-
-        // Call location fill on page load
-        window.onload = fillLocation;
-    </script>
 </body>
 </html>
