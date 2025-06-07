@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file, redirect, url_for
+from flask import Flask, render_template, request, send_file
 import pandas as pd
 import qrcode
 import uuid
@@ -11,29 +11,26 @@ import math
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 
-# Ensure upload and QR folders exist
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
 qr_folder = os.path.join('static', 'qr')
 os.makedirs(qr_folder, exist_ok=True)
 
-sessions = {}  # session_id -> session details
-attendance = {}  # session_id -> list of attendance records
+sessions = {}    # session_id -> session details
+attendance = {}  # session_id -> list of marked attendance dicts
 
-# Base URL (change this to your deployed Render app URL)
+# Use public URL for deployed version
 BASE_URL = 'https://attendance-system-project.onrender.com/'
 
 def haversine(lat1, lon1, lat2, lon2):
-    R = 6371000  # radius of Earth in meters
+    R = 6371000  # meters
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)
     d_phi = math.radians(lat2 - lat1)
     d_lambda = math.radians(lon2 - lon1)
-
     a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
     return R * c
 
 @app.route('/')
@@ -58,11 +55,7 @@ def upload():
         return 'Invalid location or radius values.'
 
     if file:
-        try:
-            df = pd.read_csv(file)
-        except Exception:
-            return 'Failed to read CSV file. Please upload a valid CSV.'
-
+        df = pd.read_csv(file)
         session_id = str(uuid.uuid4())
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], session_id + '.csv')
         df.to_csv(filepath, index=False)
@@ -96,15 +89,11 @@ def scan(session_id):
     name_col = df.columns[1]
 
     if request.method == 'POST':
-        entered_roll = request.form.get('roll_number').strip()
-        if not entered_roll:
-            error_msg = 'Please enter your roll number.'
-            return render_template('roll_entry.html', session_id=session_id, error=error_msg)
-
-        # Find matching student by roll number (case-insensitive)
+        entered_roll = request.form.get('roll_number', '').strip().lower()
         matched_student = None
+
         for student in students:
-            if str(student[roll_col]).strip().lower() == entered_roll.lower():
+            if str(student[roll_col]).strip().lower() == entered_roll:
                 matched_student = student
                 break
 
@@ -115,10 +104,9 @@ def scan(session_id):
                                    roll_col=roll_col,
                                    name_col=name_col)
         else:
-            error_msg = 'Roll number not found. Please check and try again.'
+            error_msg = 'Roll number not found. Please try again.'
             return render_template('roll_entry.html', session_id=session_id, error=error_msg)
 
-    # GET method - show roll entry page
     return render_template('roll_entry.html', session_id=session_id, error=None)
 
 @app.route('/mark', methods=['POST'])
@@ -130,30 +118,28 @@ def mark_attendance():
     lon = request.form.get('longitude')
 
     if not lat or not lon:
-        return render_template('confirm_attendance.html', message='Location access is required to mark attendance.')
+        return 'Location access is required to mark attendance.'
 
     try:
         lat = float(lat)
         lon = float(lon)
     except ValueError:
-        return render_template('confirm_attendance.html', message='Invalid latitude or longitude.')
+        return 'Invalid latitude or longitude.'
 
     session = sessions.get(session_id)
     if not session:
-        return render_template('confirm_attendance.html', message='Invalid session.')
+        return 'Invalid session.'
 
     dist = haversine(lat, lon, session['latitude'], session['longitude'])
     if dist > session['radius']:
-        return render_template('confirm_attendance.html',
-                               message=f'You are outside the allowed area (Distance: {dist:.2f} meters). Attendance not marked.')
+        return f'You are outside the allowed area (Distance: {dist:.2f} m). Attendance not marked.'
 
     if session_id not in attendance:
         attendance[session_id] = []
 
-    # Check if attendance already marked for this roll
     for record in attendance[session_id]:
         if record['roll'].strip().lower() == roll.strip().lower():
-            return render_template('confirm_attendance.html', message='Attendance already marked for this roll number.')
+            return 'Attendance already marked for this roll number.'
 
     india_time = datetime.now(timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S')
 
@@ -163,7 +149,7 @@ def mark_attendance():
         'timestamp': india_time
     })
 
-    return render_template('confirm_attendance.html', message='Attendance marked successfully!')
+    return 'Attendance marked successfully!'
 
 @app.route('/download/<session_id>')
 def download(session_id):
@@ -171,18 +157,15 @@ def download(session_id):
     if not session:
         return 'Invalid session.'
 
-    if session_id not in attendance or not attendance[session_id]:
+    if session_id not in attendance:
         return 'No attendance data for this session.'
 
     df = pd.read_csv(session['filename'])
     attendance_records = attendance[session_id]
 
-    # Use date as column name (IST timezone)
     col_name = datetime.now(timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S')
-
     present_rolls = {record['roll'].strip().lower(): 1 for record in attendance_records}
 
-    # Mark 1 if present else 0
     df[col_name] = df[df.columns[0]].apply(lambda roll: present_rolls.get(str(roll).strip().lower(), 0))
 
     output = BytesIO()
