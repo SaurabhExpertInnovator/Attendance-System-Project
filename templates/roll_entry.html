@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Enter Roll Number</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #e0f7fa;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .box {
+      background: white;
+      padding: 30px 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      width: 90%;
+      max-width: 400px;
+    }
+    h2 {
+      color: #00796b;
+      margin-top: 0;
+    }
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 12px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #00796b;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #006054;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>Enter Your Roll Number</h2>
+    <form method="POST">
+      <input type="hidden" name="session_id" value="{{ session_id }}">
+      <label for="roll_number"><b>{{ roll_col }}</b></label>
+      <input type="text" id="roll_number" name="roll_number"
+             placeholder="e.g. 22CS001" required>
+      <button type="submit">Next</button>
+    </form>
+  </div>
+</body>
+</html>
