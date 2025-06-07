@@ -4,55 +4,49 @@
     <title>Confirm Details</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 30px;
-            background-color: #f7f7f7;
-            text-align: center;
+        body{
+            font-family:Arial, sans-serif;
+            padding:30px;
+            background:#f7f7f7;
+            text-align:center;
         }
-        .box {
-            background-color: white;
-            padding: 30px;
-            max-width: 400px;
-            margin: auto;
-            box-shadow: 0 0 15px rgba(0,0,0,0.1);
-            border-radius: 10px;
+        .box{
+            background:#fff;
+            padding:30px;
+            max-width:400px;
+            margin:auto;
+            box-shadow:0 0 15px rgba(0,0,0,.1);
+            border-radius:10px;
         }
-        .info {
-            margin-bottom: 20px;
+        .info{margin-bottom:20px;}
+        .info p{font-size:18px;margin:5px 0;}
+        button{
+            padding:10px 20px;
+            font-size:16px;
+            margin:10px;
+            cursor:pointer;
+            border:none;
+            border-radius:5px;
         }
-        .info p {
-            font-size: 18px;
-            margin: 5px 0;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            margin: 10px;
-            cursor: pointer;
-            border: none;
-            border-radius: 5px;
-        }
-        .confirm-btn {
-            background-color: #28a745;
-            color: white;
-        }
-        .retry-btn {
-            background-color: #dc3545;
-            color: white;
-        }
+        .confirm-btn{background:#28a745;color:#fff;}
+        .retry-btn{background:#dc3545;color:#fff;}
     </style>
 </head>
 <body>
     <div class="box">
         <h2>Confirm Your Details</h2>
+
         <div class="info">
-            <p><strong>Name:</strong> {{ student[name_col] }}</p>
+            <!-- safe-access for name -->
+            <p><strong>Name:</strong>
+               {{ name_col and student.get(name_col, '--') or '--' }}
+            </p>
             <p><strong>Roll Number:</strong> {{ student[roll_col] }}</p>
         </div>
 
         <form method="POST" action="{{ url_for('mark_attendance') }}" id="confirmForm">
-            <input type="hidden" name="name" value="{{ student[name_col] }}">
+            <input type="hidden" name="name"
+                   value="{{ name_col and student.get(name_col, '') or '' }}">
             <input type="hidden" name="roll_number" value="{{ student[roll_col] }}">
             <input type="hidden" name="latitude" id="latitude">
             <input type="hidden" name="longitude" id="longitude">
@@ -66,13 +60,15 @@
     </div>
 
     <script>
-        // Get location and fill form
-        navigator.geolocation.getCurrentPosition(function(position) {
-            document.getElementById('latitude').value = position.coords.latitude;
-            document.getElementById('longitude').value = position.coords.longitude;
-        }, function(error) {
-            alert('Location permission is required to mark attendance.');
-        });
+        navigator.geolocation.getCurrentPosition(
+            function(pos){
+                document.getElementById('latitude').value  = pos.coords.latitude;
+                document.getElementById('longitude').value = pos.coords.longitude;
+            },
+            function(){
+                alert("Location permission is required to mark attendance.");
+            }
+        );
     </script>
 </body>
 </html>
