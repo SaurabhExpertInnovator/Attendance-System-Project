@@ -77,7 +77,7 @@ def upload():
     else:
         return 'File not uploaded.'
 
-@app.route('/scan/<session_id>')
+@app.route('/scan/<session_id>', methods=['GET','POST'])
 def scan(session_id):
     session = sessions.get(session_id)
     if not session:
