@@ -1,4 +1,3 @@
-# app.py
 from flask import Flask, render_template, request, send_file
 import pandas as pd
 import qrcode, uuid, os, math
@@ -34,9 +33,13 @@ def haversine(lat1, lon1, lat2, lon2):
     dλ       = math.radians(lon2 - lon1)
     a = math.sin(dφ/2)**2 + math.cos(φ1)*math.cos(φ2)*math.sin(dλ/2)**2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+def normalize_roll(roll):
+    """Normalize roll number string for consistent lookup."""
+    return str(roll).strip().lower().lstrip('0')
+
+
 # ---------------------------------------------------------------------------
-
-
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -76,9 +79,9 @@ def upload():
     roll_col = df.columns[0]
     name_col = df.columns[1] if df.shape[1] > 1 else None
 
-    # Build dict: roll_number (lower-cased) → row-dict
+    # Build dict: normalized roll_number → row-dict
     students_map = {
-        str(row[roll_col]).strip().lower(): row.to_dict()
+        normalize_roll(row[roll_col]): row.to_dict()
         for _, row in df.iterrows()
     }
 
@@ -115,11 +118,11 @@ def scan(session_id):
 
     roll_col  = session['roll_col']
     name_col  = session['name_col']
-    students  = session['students_map']        # dict: roll → row-dict
+    students  = session['students_map']        # dict: normalized roll → row-dict
 
     # ----------------------------- POST
     if request.method == 'POST':
-        entered_roll = request.form.get('roll_number', '').strip().lower()
+        entered_roll = normalize_roll(request.form.get('roll_number', ''))
 
         if not entered_roll:
             return render_template(
@@ -200,7 +203,7 @@ def mark_attendance():
 
     # 3. Double-mark prevention
     attendance.setdefault(session_id, [])
-    if any(rec['roll'].lower() == roll.lower() for rec in attendance[session_id]):
+    if any(normalize_roll(rec['roll']) == normalize_roll(roll) for rec in attendance[session_id]):
         return render_template(
             'confirm_attendance.html',
             message='⚠️ Attendance already marked for this roll number.'
@@ -231,9 +234,9 @@ def download(session_id):
     df = pd.read_csv(session['filename'])
     col_name = datetime.now(timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S')
 
-    present = {rec['roll'].lower(): 1 for rec in attendance[session_id]}
+    present = {normalize_roll(rec['roll']): 1 for rec in attendance[session_id]}
     df[col_name] = df[df.columns[0]].apply(
-        lambda r: present.get(str(r).strip().lower(), 0)
+        lambda r: present.get(normalize_roll(r), 0)
     )
 
     buf = BytesIO()
