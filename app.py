@@ -1,3 +1,4 @@
+# app.py
 from flask import Flask, render_template, request, send_file
 import pandas as pd
 import qrcode, uuid, os, math
@@ -11,14 +12,14 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 # ---------------------------------------------------------------------------
 #  folder setup
 # ---------------------------------------------------------------------------
-os.makedirs(app.config['UPLOAD_FOLDER'],   exist_ok=True)
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 qr_folder = os.path.join('static', 'qr')
 os.makedirs(qr_folder, exist_ok=True)
 
 # ---------------------------------------------------------------------------
 #  in-memory stores
 # ---------------------------------------------------------------------------
-sessions   = {}   # session_id → dict with CSV filename & geo fence
+sessions   = {}   # session_id → dict with CSV filename, geo-fence & cached lookup
 attendance = {}   # session_id → list of {name, roll, timestamp}
 
 # Render base URL (change if you deploy somewhere else)
@@ -62,7 +63,7 @@ def upload():
     if not file:
         return 'No file uploaded.'
 
-    # save CSV
+    # save CSV and build fast lookup
     try:
         df = pd.read_csv(file)
     except Exception:
@@ -72,19 +73,35 @@ def upload():
     csv_path   = os.path.join(app.config['UPLOAD_FOLDER'], f'{session_id}.csv')
     df.to_csv(csv_path, index=False)
 
-    sessions[session_id] = dict(filename=csv_path,
-                                latitude=latitude,
-                                longitude=longitude,
-                                radius=radius)
+    roll_col = df.columns[0]
+    name_col = df.columns[1] if df.shape[1] > 1 else None
+
+    # Build dict: roll_number (lower-cased) → row-dict
+    students_map = {
+        str(row[roll_col]).strip().lower(): row.to_dict()
+        for _, row in df.iterrows()
+    }
+
+    sessions[session_id] = dict(
+        filename=csv_path,
+        latitude=latitude,
+        longitude=longitude,
+        radius=radius,
+        roll_col=roll_col,
+        name_col=name_col,
+        students_map=students_map,   # cached for O(1) look-up
+    )
 
     # generate QR
     qr_url  = f'{BASE_URL}scan/{session_id}'
     qr_path = os.path.join(qr_folder, f'{session_id}.png')
     qrcode.make(qr_url).save(qr_path)
 
-    return render_template('qr_display.html',
-                           qr_path=f'qr/{session_id}.png',
-                           session_id=session_id)
+    return render_template(
+        'qr_display.html',
+        qr_path=f'qr/{session_id}.png',
+        session_id=session_id
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -96,46 +113,48 @@ def scan(session_id):
     if not session:
         return 'Invalid session ID'
 
-    # read CSV for this session
-    try:
-        df = pd.read_csv(session['filename'])
-    except Exception as e:
-        print('CSV read error:', e)
-        return 'Could not read CSV'
+    roll_col  = session['roll_col']
+    name_col  = session['name_col']
+    students  = session['students_map']        # dict: roll → row-dict
 
-    # first column is roll numbers; second (if present) is names
-    roll_col = df.columns[0]
-    name_col = df.columns[1] if df.shape[1] > 1 else None
-    students = df.to_dict('records')
-
-    # ------------------------------------------------------------------ POST
+    # ----------------------------- POST
     if request.method == 'POST':
         entered_roll = request.form.get('roll_number', '').strip().lower()
-        print('POST /scan – entered_roll:', entered_roll)
 
         if not entered_roll:
-            return render_template('roll_entry.html',
-                                   session_id=session_id,
-                                   error='Please enter a roll number.')
+            return render_template(
+                'roll_entry.html',
+                session_id=session_id,
+                roll_col=roll_col,
+                error='Please enter a roll number.'
+            )
 
-        matched = next((s for s in students
-                        if str(s[roll_col]).strip().lower() == entered_roll),
-                       None)
+        matched = students.get(entered_roll)
 
         if not matched:
-            return render_template('roll_entry.html',
-                                   session_id=session_id,
-                                   error='Roll number not found. Try again.')
+            return render_template(
+                'roll_entry.html',
+                session_id=session_id,
+                roll_col=roll_col,
+                error='Roll number not found. Try again.'
+            )
 
         # Found → go to confirmation page
-        return render_template('confirm_details.html',
-                               student=matched,
-                               session_id=session_id,
-                               roll_col=roll_col,
-                               name_col=name_col)
+        return render_template(
+            'confirm_details.html',
+            student=matched,
+            session_id=session_id,
+            roll_col=roll_col,
+            name_col=name_col
+        )
 
-    # ------------------------------------------------------------------ GET
-    return render_template('roll_entry.html', session_id=session_id, error=None)
+    # ----------------------------- GET
+    return render_template(
+        'roll_entry.html',
+        session_id=session_id,
+        roll_col=roll_col,
+        error=None
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -149,33 +168,52 @@ def mark_attendance():
     lat        = request.form.get('latitude')
     lon        = request.form.get('longitude')
 
+    # 1. Location required
     if not (lat and lon):
-        return 'Location access is required to mark attendance.'
+        return render_template(
+            'confirm_attendance.html',
+            message='❌ Location permission is required to mark attendance.'
+        )
 
     try:
         lat, lon = map(float, (lat, lon))
     except ValueError:
-        return 'Invalid latitude/longitude.'
+        return render_template(
+            'confirm_attendance.html',
+            message='❌ Invalid latitude/longitude.'
+        )
 
     session = sessions.get(session_id)
     if not session:
-        return 'Invalid session.'
+        return render_template(
+            'confirm_attendance.html',
+            message='❌ Invalid session. Please rescan the QR code.'
+        )
 
-    # geo-fence check
+    # 2. Geo-fence check
     dist = haversine(lat, lon, session['latitude'], session['longitude'])
     if dist > session['radius']:
-        return f'Outside allowed area (distance {dist:.1f} m). Attendance not marked.'
+        return render_template(
+            'confirm_attendance.html',
+            message=f'❌ Outside allowed area ({dist:.1f} m).'
+        )
 
-    # prevent double marking
+    # 3. Double-mark prevention
     attendance.setdefault(session_id, [])
-    for rec in attendance[session_id]:
-        if rec['roll'].lower() == roll.lower():
-            return 'Attendance already marked for this roll.'
+    if any(rec['roll'].lower() == roll.lower() for rec in attendance[session_id]):
+        return render_template(
+            'confirm_attendance.html',
+            message='⚠️ Attendance already marked for this roll number.'
+        )
 
+    # 4. Record attendance
     timestamp = datetime.now(timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S')
     attendance[session_id].append(dict(name=name, roll=roll, timestamp=timestamp))
 
-    return 'Attendance marked successfully!'
+    return render_template(
+        'confirm_attendance.html',
+        message='✅ Attendance marked successfully!'
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -195,16 +233,23 @@ def download(session_id):
 
     present = {rec['roll'].lower(): 1 for rec in attendance[session_id]}
     df[col_name] = df[df.columns[0]].apply(
-        lambda r: present.get(str(r).strip().lower(), 0))
+        lambda r: present.get(str(r).strip().lower(), 0)
+    )
 
     buf = BytesIO()
     df.to_csv(buf, index=False)
     buf.seek(0)
-    return send_file(buf, mimetype='text/csv',
-                     as_attachment=True,
-                     download_name=f'attendance_{session_id}.csv')
+    return send_file(
+        buf,
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=f'attendance_{session_id}.csv'
+    )
 
 
 # ---------------------------------------------------------------------------
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # On Render, the platform supplies PORT; default to 5000 for local runs.
+    import os
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=True, host='0.0.0.0', port=port)
